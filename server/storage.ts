@@ -1,6 +1,4 @@
-import { users, pushTokens, type User, type UpsertUser, type PushToken } from "../shared/schema";
-import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { type User, type UpsertUser, type PushToken } from "../shared/schema";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -11,60 +9,68 @@ export interface IStorage {
   removePushToken(expoPushToken: string): Promise<void>;
 }
 
-export class DatabaseStorage implements IStorage {
+class MemoryStorage implements IStorage {
+  users: Map<string, User> = new Map();
+  tokens: PushToken[] = [];
+
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    return this.users.get(id);
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    const existing = this.users.get(userData.id);
+    const now = new Date();
+    const next: User = {
+      id: userData.id,
+      email: userData.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      profileImageUrl: userData.profileImageUrl,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    } as User;
+    this.users.set(userData.id, next);
+    return next;
   }
 
   async savePushToken(userId: string, expoPushToken: string): Promise<PushToken> {
-    const existing = await db
-      .select()
-      .from(pushTokens)
-      .where(and(eq(pushTokens.userId, userId), eq(pushTokens.expoPushToken, expoPushToken)));
-
-    if (existing.length > 0) {
-      const [updated] = await db
-        .update(pushTokens)
-        .set({ updatedAt: new Date() })
-        .where(eq(pushTokens.id, existing[0].id))
-        .returning();
-      return updated;
+    const existing = this.tokens.find(t => t.userId === userId && t.expoPushToken === expoPushToken);
+    const now = new Date();
+    if (existing) {
+      existing.updatedAt = now;
+      return existing;
     }
-
-    const [token] = await db
-      .insert(pushTokens)
-      .values({ userId, expoPushToken })
-      .returning();
+    const token: PushToken = {
+      id: Math.random().toString(36).slice(2),
+      userId,
+      expoPushToken,
+      createdAt: now,
+      updatedAt: now,
+    } as PushToken;
+    this.tokens.push(token);
     return token;
   }
 
   async getPushTokensForUser(userId: string): Promise<PushToken[]> {
-    return db.select().from(pushTokens).where(eq(pushTokens.userId, userId));
+    return this.tokens.filter(t => t.userId === userId);
   }
 
   async getAllPushTokens(): Promise<PushToken[]> {
-    return db.select().from(pushTokens);
+    return this.tokens;
   }
 
   async removePushToken(expoPushToken: string): Promise<void> {
-    await db.delete(pushTokens).where(eq(pushTokens.expoPushToken, expoPushToken));
+    this.tokens = this.tokens.filter(t => t.expoPushToken !== expoPushToken);
   }
 }
 
-export const storage = new DatabaseStorage();
+let storageImpl: IStorage;
+
+if (process.env.DATABASE_URL) {
+  const { DatabaseStorage } = require("./storage.db");
+  storageImpl = new DatabaseStorage();
+} else {
+  storageImpl = new MemoryStorage();
+}
+
+export const storage: IStorage = storageImpl;

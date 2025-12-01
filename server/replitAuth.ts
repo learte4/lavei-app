@@ -7,6 +7,8 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
+const DEV_NO_AUTH = process.env.DEV_NO_AUTH === "true" || !process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.REPL_ID;
+
 const getOidcConfig = memoize(
   async () => {
     return await client.discovery(
@@ -19,6 +21,18 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000;
+  if (DEV_NO_AUTH) {
+    return session({
+      secret: process.env.SESSION_SECRET || "dev-secret",
+      resave: false,
+      saveUninitialized: true,
+      cookie: {
+        httpOnly: true,
+        secure: false,
+        maxAge: sessionTtl,
+      },
+    });
+  }
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
@@ -62,11 +76,27 @@ async function upsertUser(claims: any) {
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
+  if (DEV_NO_AUTH) {
+    app.use((req, _res, next) => {
+      if (!req.user) {
+        (req as any).user = { claims: { sub: "dev-user", email: "dev@example.com" } } as any;
+      }
+      next();
+    });
+    app.get("/api/login", (_req, res) => {
+      res.redirect("/");
+    });
+    app.get("/api/callback", (_req, res) => {
+      res.redirect("/");
+    });
+    app.get("/api/logout", (_req, res) => {
+      res.redirect("/");
+    });
+    return;
+  }
   app.use(passport.initialize());
   app.use(passport.session());
-
   const config = await getOidcConfig();
-
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
@@ -76,9 +106,7 @@ export async function setupAuth(app: Express) {
     await upsertUser(tokens.claims());
     verified(null, user);
   };
-
   const registeredStrategies = new Set<string>();
-
   const ensureStrategy = (domain: string) => {
     const strategyName = `replitauth:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
@@ -95,10 +123,8 @@ export async function setupAuth(app: Express) {
       registeredStrategies.add(strategyName);
     }
   };
-
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
@@ -106,7 +132,6 @@ export async function setupAuth(app: Express) {
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
-
   app.get("/api/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
@@ -114,7 +139,6 @@ export async function setupAuth(app: Express) {
       failureRedirect: "/api/login",
     })(req, res, next);
   });
-
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
       res.redirect(
@@ -128,6 +152,9 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  if (DEV_NO_AUTH) {
+    return next();
+  }
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {
