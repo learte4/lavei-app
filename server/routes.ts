@@ -73,6 +73,22 @@ async function sendPushNotification(messages: ExpoPushMessage[]): Promise<ExpoPu
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
+  app.get('/', (_req, res) => {
+    res.json({ 
+      message: 'Lavei API', 
+      version: '1.0.0',
+      endpoints: {
+        health: 'GET /api/health',
+        auth: 'GET /api/auth/user',
+        notifications: {
+          register: 'POST /api/notifications/register',
+          send: 'POST /api/notifications/send',
+          broadcast: 'POST /api/notifications/broadcast'
+        }
+      }
+    });
+  });
+
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

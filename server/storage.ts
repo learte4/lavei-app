@@ -18,6 +18,7 @@ class MemoryStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    if (!userData.id) throw new Error('User ID is required');
     const existing = this.users.get(userData.id);
     const now = new Date();
     const next: User = {
