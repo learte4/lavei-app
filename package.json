@@ -8,7 +8,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "server": "NODE_ENV=development tsx server/index.ts",
+    "server": "cross-env NODE_ENV=development tsx server/index.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
@@ -53,6 +53,7 @@
     "@types/passport": "^1.0.17",
     "@types/react": "~18.3.0",
     "@types/ws": "^8.18.1",
+    "cross-env": "^10.1.0",
     "typescript": "~5.3.0"
   }
 }
