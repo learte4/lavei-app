@@ -1,0 +1,65 @@
+~/workspace$ # Fazer backup do código
+cd /home/runner/workspace
+tar -czf ../backup.tar.gz . --exclude=.git
+
+# Limpar o git e reiniciar
+rm -rf .git
+
+# Iniciar um novo repositório limpo
+git init
+git add .
+git commit -m "Initial commit: Lavei app"
+git branch -M main
+git remote add origin https://github.com/learte4/Lavei-app
+git push -u origin main
+tar: The following options were used after non-option arguments.  These options are positional and affect only arguments that follow them.  Please, rearrange them properly.
+tar: --exclude ‘.git’ has no effect
+tar: Exiting with failure status due to previous errors
+Initialized empty Git repository in /home/runner/workspace/.git/
+[main (root-commit) aff4d09] Initial commit: Lavei app
+ 35 files changed, 16848 insertions(+)
+ create mode 100644 .github/workflows/build-prod.yml
+ create mode 100644 .gitignore
+ create mode 100644 .replit
+ create mode 100644 README.md
+ create mode 100644 app.json
+ create mode 100644 app/(tabs)/_layout.tsx
+ create mode 100644 app/(tabs)/account.tsx
+ create mode 100644 app/(tabs)/history.tsx
+ create mode 100644 app/(tabs)/index.tsx
+ create mode 100644 app/_layout.tsx
+ create mode 100644 app/index.tsx
+ create mode 100644 assets/Ico+nome-LAVEI.png
+ create mode 100644 assets/Ico-LAVEI.svg
+ create mode 100644 assets/adaptive-icon.png
+ create mode 100644 assets/favicon.png
+ create mode 100644 assets/icon.png
+ create mode 100644 assets/notification-icon.png
+ create mode 100644 assets/splash.png
+ create mode 100644 attached_assets/image_1764604793397.png
+ create mode 100644 attached_assets/image_1764611559468.png
+ create mode 100644 babel.config.js
+ create mode 100644 drizzle.config.ts
+ create mode 100644 lib/notifications.ts
+ create mode 100644 lib/useAuth.ts
+ create mode 100644 metro.config.js
+ create mode 100644 package-lock.json
+ create mode 100644 package.json
+ create mode 100644 replit.md
+ create mode 100644 server/db.ts
+ create mode 100644 server/index.ts
+ create mode 100644 server/replitAuth.ts
+ create mode 100644 server/routes.ts
+ create mode 100644 server/storage.ts
+ create mode 100644 shared/schema.ts
+ create mode 100644 tsconfig.json
+Enumerating objects: 42, done.
+Counting objects: 100% (42/42), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (38/38), done.
+Writing objects: 100% (42/42), 296.83 KiB | 14.13 MiB/s, done.
+Total 42 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
+To https://github.com/learte4/Lavei-app
+ ! [remote rejected] main -> main (refusing to allow an OAuth App to create or update workflow `.github/workflows/build-prod.yml` without `workflow` scope)
+error: failed to push some refs to 'https://github.com/learte4/Lavei-app'
+~/workspace$ 
