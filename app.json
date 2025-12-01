@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "scheme": "lavei",
     "userInterfaceStyle": "light",
+    "hostUri": "0.0.0.0:8081",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
