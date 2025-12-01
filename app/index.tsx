@@ -5,11 +5,11 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/useAuth';
 
 const LAVEI_YELLOW = '#f0b100';
@@ -41,27 +41,26 @@ export default function LoginScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: LAVEI_YELLOW }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: LAVEI_DARK }]}>
         <ActivityIndicator size="large" color={LAVEI_DARK} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: LAVEI_YELLOW }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: LAVEI_DARK }]}>
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <Ionicons name="car-sport" size={64} color={LAVEI_DARK} />
+          <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
         </View>
 
-        <Text style={[styles.title, { color: LAVEI_DARK }]}>Lavei</Text>
-        <Text style={[styles.subtitle, { color: LAVEI_DARK }]}>
+        <Text style={[styles.subtitle, { color: '#fff' }]}>
           Serviços de lavagem automotiva na palma da sua mão
         </Text>
       </View>
 
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: LAVEI_DARK }]}
+        style={[styles.button, { backgroundColor: LAVEI_YELLOW }]}
         onPress={handleLogin}
         disabled={isLoggingIn}
       >
@@ -103,11 +102,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 80,
     height: 80,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    marginBottom: 12,
   },
   subtitle: {
     fontSize: 18,
