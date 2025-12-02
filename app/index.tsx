@@ -78,9 +78,7 @@ export default function RoleSelectScreen() {
       </View>
 
       <View style={styles.content}>
-        <View style={styles.titleContainer}>
-          <Image source={require('../assets/icon.png')} style={styles.titleLogo} resizeMode="contain" />
-        </View>
+        <Image source={require('../assets/icon.png')} style={styles.titleLogo} resizeMode="contain" />
         <Text style={styles.subtitle}>O jeito mais fácil de lavar o seu carro</Text>
 
         <View style={styles.divider} />
@@ -128,15 +126,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    justifyContent: 'center',
-  },
   titleLogo: {
-    width: 80,
-    height: 80,
+    width: 240,
+    height: 240,
+    marginBottom: 24,
+    marginRight: 'auto',
   },
   subtitle: {
     fontSize: 16,
