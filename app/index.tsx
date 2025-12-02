@@ -6,10 +6,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../lib/useAuth';
 
 const LAVEI_YELLOW = '#f0b100';
@@ -17,8 +18,13 @@ const LAVEI_DARK = '#071121';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, checkAuth } = useAuth();
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const { isAuthenticated, isLoading, login, register, error, clearError } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -26,50 +32,119 @@ export default function LoginScreen() {
     }
   }, [isAuthenticated, isLoading]);
 
-  const handleLogin = async () => {
-    setIsLoggingIn(true);
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    clearError();
+    
     try {
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
-      await WebBrowser.openBrowserAsync(`${apiUrl}/api/login`);
-      await checkAuth();
-    } catch (error) {
-      console.error('Login error:', error);
+      if (isRegister) {
+        const result = await register({ email, password, firstName, lastName });
+        if (result.success) {
+          setEmail('');
+          setPassword('');
+          setFirstName('');
+          setLastName('');
+          setIsRegister(false);
+        }
+      } else {
+        const result = await login({ email, password });
+        if (result.success) {
+          setEmail('');
+          setPassword('');
+        }
+      }
     } finally {
-      setIsLoggingIn(false);
+      setIsSubmitting(false);
     }
   };
 
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: LAVEI_DARK }]}>
-        <ActivityIndicator size="large" color={LAVEI_DARK} />
+        <ActivityIndicator size="large" color={LAVEI_YELLOW} />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: LAVEI_DARK }]}>
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+          <View style={styles.logoContainer}>
+            <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+          </View>
+
+          <Text style={[styles.subtitle, { color: '#fff' }]}>
+            O jeito mais fácil de lavar o seu carro
+          </Text>
+
+          {error && <Text style={styles.errorText}>{error}</Text>}
+
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            editable={!isSubmitting}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Senha"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            editable={!isSubmitting}
+          />
+
+          {isRegister && (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Primeiro Nome"
+                value={firstName}
+                onChangeText={setFirstName}
+                editable={!isSubmitting}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Sobrenome"
+                value={lastName}
+                onChangeText={setLastName}
+                editable={!isSubmitting}
+              />
+            </>
+          )}
+
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: LAVEI_YELLOW }]}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color={LAVEI_DARK} />
+            ) : (
+              <Text style={styles.buttonText}>{isRegister ? 'Criar Conta' : 'Entrar'}</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              setIsRegister(!isRegister);
+              clearError();
+              setEmail('');
+              setPassword('');
+              setFirstName('');
+              setLastName('');
+            }}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.toggleText}>
+              {isRegister ? 'Já tem conta? Entrar' : 'Não tem conta? Criar'}
+            </Text>
+          </TouchableOpacity>
         </View>
-
-        <Text style={[styles.subtitle, { color: '#fff' }]}>
-          O jeito mais fácil de lavar o seu carro
-        </Text>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: LAVEI_YELLOW }]}
-        onPress={handleLogin}
-        disabled={isLoggingIn}
-      >
-        {isLoggingIn ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Entrar</Text>
-        )}
-      </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 }

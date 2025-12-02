@@ -238,6 +238,10 @@ export function setupAuth(app: Express) {
     }
   });
 
+  app.get("/api/login", (_req, res) => {
+    res.status(400).json({ message: "Use POST /api/login com email e password" });
+  });
+
   app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: Express.User | false, info: any) => {
       if (err) {
