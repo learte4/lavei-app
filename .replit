@@ -58,6 +58,10 @@ externalPort = 3000
 localPort = 24678
 externalPort = 3001
 
+[[ports]]
+localPort = 45407
+externalPort = 3002
+
 [deployment]
 deploymentTarget = "static"
 build = ["npm", "run", "build"]
@@ -66,4 +70,4 @@ publicDir = "dist"
 [userenv]
 
 [userenv.shared]
-EXPO_PUBLIC_API_URL = "http://0.0.0.0:5000"
+EXPO_PUBLIC_API_URL = "https://8b83c109-c46e-4c06-a7f5-4d4a9fa455f6-00-24506hjk3wwor.picard.replit.dev"
