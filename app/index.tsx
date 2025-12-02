@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
   titleLogo: {
     width: 240,
     height: 240,
-    marginBottom: 24,
-    marginRight: "auto",
+    marginBottom: 12,
+    alignSelf: "center",
   },
   subtitle: {
     fontSize: 16,
