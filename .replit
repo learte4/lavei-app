@@ -61,10 +61,6 @@ externalPort = 3000
 localPort = 24678
 externalPort = 3001
 
-[[ports]]
-localPort = 38989
-externalPort = 3002
-
 [deployment]
 deploymentTarget = "static"
 build = ["npm", "run", "build"]
@@ -74,3 +70,4 @@ publicDir = "dist"
 
 [userenv.shared]
 EXPO_PUBLIC_API_URL = "https://8b83c109-c46e-4c06-a7f5-4d4a9fa455f6-00-24506hjk3wwor.picard.replit.dev"
+GOOGLE_CALLBACK_URL = "https://8b83c109-c46e-4c06-a7f5-4d4a9fa455f6-00-24506hjk3wwor.picard.replit.dev/api/auth/google/callback"

@@ -23,7 +23,7 @@
 ### Backend (Express.js)
 - **Express 5** + TypeScript
 - **Drizzle ORM** com PostgreSQL (Neon)
-- **Replit Auth** (OpenID Connect)
+- **Autenticação**: Email/Senha + Google OAuth (Passport.js)
 
 ## Estrutura do Projeto
 
@@ -37,7 +37,7 @@
 ├── server/                # Backend Express
 │   ├── routes.ts          # Endpoints API
 │   ├── storage.ts         # Drizzle + BD
-│   ├── replitAuth.ts      # Autenticação
+│   ├── auth.ts            # Autenticação (Email/Senha + Google)
 │   └── index.ts           # Entry point
 ├── lib/                   # Hooks & utilitários
 │   ├── useAuth.ts        # Hook autenticação
@@ -64,7 +64,12 @@ npm run db:push        # Sincronizar schema
 - `POST /api/notifications/broadcast` - Enviar para todos
 
 ### Autenticação
+- `POST /api/register` - Criar conta (email/senha)
+- `POST /api/login` - Login (email/senha)
+- `POST /api/logout` - Logout
 - `GET /api/auth/user` - Usuário autenticado
+- `GET /api/auth/google` - Login com Google OAuth
+- `GET /api/auth/google/callback` - Callback do Google
 - `GET /api/health` - Health check
 
 ## Como Testar
@@ -83,4 +88,7 @@ O app registra automaticamente o token push do dispositivo após login. As notif
 
 - `DATABASE_URL` - PostgreSQL (Replit)
 - `SESSION_SECRET` - Sessão
+- `GOOGLE_CLIENT_ID` - ID do cliente Google OAuth
+- `GOOGLE_CLIENT_SECRET` - Secret do cliente Google OAuth
+- `GOOGLE_CALLBACK_URL` - URL de callback do Google OAuth
 - `EXPO_ACCESS_TOKEN` - Para Push (opcional em dev)
