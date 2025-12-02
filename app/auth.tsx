@@ -8,6 +8,7 @@ import {
   TextInput,
   ScrollView,
   Linking,
+  Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -175,7 +176,8 @@ export default function AuthScreen() {
                 onPress={handleGoogleLogin}
                 disabled={isSubmitting}
               >
-                <Text style={styles.googleButtonText}>🔍 Entrar com Google</Text>
+                <Image source={require('../assets/google.svg')} style={styles.googleLogo} />
+                <Text style={styles.googleButtonText}>Entrar com Google</Text>
               </TouchableOpacity>
             </>
           )}
@@ -312,7 +314,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 16,
+  },
+  googleLogo: {
+    width: 20,
+    height: 20,
   },
   googleButtonText: {
     color: '#fff',
