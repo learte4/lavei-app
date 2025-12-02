@@ -292,11 +292,22 @@ export function setupAuth(app: Express) {
 
     app.get(
       "/api/auth/google/callback",
-      passport.authenticate("google", { failureRedirect: "/login" }),
+      passport.authenticate("google", { failureRedirect: "/api/auth/google/failure" }),
       (req, res) => {
-        res.redirect("/");
+        res.json({
+          success: true,
+          user: req.user,
+          message: "Login realizado com sucesso"
+        });
       }
     );
+
+    app.get("/api/auth/google/failure", (_req, res) => {
+      res.status(401).json({
+        success: false,
+        message: "Falha na autenticação com Google"
+      });
+    });
   }
 }
 
