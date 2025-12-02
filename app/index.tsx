@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -6,15 +6,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../lib/useAuth';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../lib/useAuth";
 
-const LAVEI_YELLOW = '#f0b100';
-const LAVEI_DARK = '#071121';
+const LAVEI_YELLOW = "#f0b100";
+const LAVEI_DARK = "#071121";
 
-type UserRole = 'client' | 'provider' | 'partner' | 'admin';
+type UserRole = "client" | "provider" | "partner" | "admin";
 
 interface RoleOption {
   id: UserRole;
@@ -25,22 +25,22 @@ interface RoleOption {
 
 const roles: RoleOption[] = [
   {
-    id: 'client',
-    label: 'Cliente',
-    description: 'Procuro lavar meu carro',
-    icon: '🚗',
+    id: "client",
+    label: "Cliente",
+    description: "Procuro lavar meu carro",
+    icon: "🚗",
   },
   {
-    id: 'provider',
-    label: 'Prestador (Lavador)',
-    description: 'Ofereço serviço de lavagem',
-    icon: '🧼',
+    id: "provider",
+    label: "Prestador (Lavador)",
+    description: "Ofereço serviço de lavagem",
+    icon: "🧽",
   },
   {
-    id: 'partner',
-    label: 'Parceiro (Lava rápido)',
-    description: 'Gerencio prestadores',
-    icon: '👔',
+    id: "partner",
+    label: "Sou Parceiro",
+    description: "Tem um Lava rápido? Gerencie prestadores",
+    icon: "🤝",
   },
 ];
 
@@ -51,7 +51,7 @@ export default function RoleSelectScreen() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }
   }, [isAuthenticated, isLoading]);
 
@@ -66,7 +66,7 @@ export default function RoleSelectScreen() {
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
     router.push({
-      pathname: '/auth',
+      pathname: "/auth",
       params: { role },
     });
   };
@@ -74,19 +74,33 @@ export default function RoleSelectScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: LAVEI_DARK }]}>
       <View style={styles.header}>
-        <Image source={require('../assets/icon.png')} style={styles.headerLogo} resizeMode="contain" />
+        <Image
+          source={require("../assets/icon.png")}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
       </View>
 
       <View style={styles.content}>
-        <Image source={require('../assets/icon.png')} style={styles.titleLogo} resizeMode="contain" />
-        <Text style={styles.subtitle}>O jeito mais fácil de lavar o seu carro</Text>
+        <Image
+          source={require("../assets/icon.png")}
+          style={styles.titleLogo}
+          resizeMode="contain"
+        />
+        <Text style={styles.subtitle}>
+          O jeito mais fácil de lavar o seu carro
+        </Text>
 
         <View style={styles.divider} />
 
         {roles.map((role, index) => (
           <TouchableOpacity
             key={role.id}
-            style={[styles.roleButton, index === 2 && styles.partnerButtonSpacing, index < 2 && styles.noBorder]}
+            style={[
+              styles.roleButton,
+              index === 2 && styles.partnerButtonSpacing,
+              index < 2 && styles.noBorder,
+            ]}
             onPress={() => handleRoleSelect(role.id)}
             activeOpacity={0.7}
           >
@@ -114,7 +128,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: "#333",
   },
   headerLogo: {
     width: 60,
@@ -122,7 +136,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
@@ -130,23 +144,23 @@ const styles = StyleSheet.create({
     width: 240,
     height: 240,
     marginBottom: 24,
-    marginRight: 'auto',
+    marginRight: "auto",
   },
   subtitle: {
     fontSize: 16,
-    color: '#aaa',
+    color: "#aaa",
     marginBottom: 32,
     lineHeight: 24,
   },
   divider: {
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: "#333",
     marginBottom: 24,
   },
   roleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 20,
     paddingHorizontal: 0,
   },
@@ -159,8 +173,8 @@ const styles = StyleSheet.create({
   },
   roleContent: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
   },
   roleIcon: {
@@ -171,17 +185,17 @@ const styles = StyleSheet.create({
   },
   roleLabel: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
     marginBottom: 4,
   },
   roleDescription: {
     fontSize: 14,
-    color: '#888',
+    color: "#888",
   },
   arrow: {
     fontSize: 24,
     color: LAVEI_YELLOW,
-    fontWeight: '300',
+    fontWeight: "300",
   },
 });

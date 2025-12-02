@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +21,7 @@ type UserRole = 'client' | 'provider' | 'partner' | 'admin';
 export default function AuthScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams();
-  const { isAuthenticated, isLoading: authLoading, login, register, error, clearError } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, login, register, error, clearError, getGoogleAuthUrl } = useAuth();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
@@ -60,6 +61,16 @@ export default function AuthScreen() {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const googleUrl = getGoogleAuthUrl();
+      await Linking.openURL(googleUrl);
+    } catch (err) {
+      console.error('Erro ao abrir Google OAuth:', err);
+      clearError();
     }
   };
 
@@ -150,6 +161,24 @@ export default function AuthScreen() {
               <Text style={styles.buttonText}>{isRegister ? 'Criar Conta' : 'Entrar'}</Text>
             )}
           </TouchableOpacity>
+
+          {!isRegister && (
+            <>
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>ou</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.googleButton]}
+                onPress={handleGoogleLogin}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.googleButtonText}>🔍 Entrar com Google</Text>
+              </TouchableOpacity>
+            </>
+          )}
 
           <TouchableOpacity
             onPress={() => {
@@ -259,5 +288,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     textDecorationLine: 'underline',
+    marginTop: 16,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#333',
+  },
+  dividerText: {
+    color: '#666',
+    fontSize: 14,
+    marginHorizontal: 12,
+  },
+  googleButton: {
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  googleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
