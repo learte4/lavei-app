@@ -32,13 +32,13 @@ const roles: RoleOption[] = [
   },
   {
     id: 'provider',
-    label: 'Prestador',
-    description: 'Oferço serviço de lavagem',
+    label: 'Prestador (Lavador)',
+    description: 'Ofereço serviço de lavagem',
     icon: '🧼',
   },
   {
     id: 'partner',
-    label: 'Parceiro',
+    label: 'Parceiro (Lava rápido)',
     description: 'Gerencio prestadores',
     icon: '👔',
   },
@@ -78,15 +78,18 @@ export default function RoleSelectScreen() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.title}>Lavei</Text>
+        <View style={styles.titleContainer}>
+          <Image source={require('../assets/icon.png')} style={styles.titleLogo} resizeMode="contain" />
+          <Text style={styles.title}>Lavei</Text>
+        </View>
         <Text style={styles.subtitle}>O jeito mais fácil de lavar o seu carro</Text>
 
         <View style={styles.divider} />
 
-        {roles.map((role) => (
+        {roles.map((role, index) => (
           <TouchableOpacity
             key={role.id}
-            style={styles.roleButton}
+            style={[styles.roleButton, index === 2 && styles.partnerButtonSpacing]}
             onPress={() => handleRoleSelect(role.id)}
             activeOpacity={0.7}
           >
@@ -100,13 +103,6 @@ export default function RoleSelectScreen() {
             <Text style={styles.arrow}>→</Text>
           </TouchableOpacity>
         ))}
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Super Admin?</Text>
-        <TouchableOpacity>
-          <Text style={styles.adminLink}>Acessar Portal</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -133,11 +129,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  titleLogo: {
+    width: 48,
+    height: 48,
+  },
   title: {
     fontSize: 48,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 12,
   },
   subtitle: {
     fontSize: 16,
@@ -158,6 +163,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: '#222',
+  },
+  partnerButtonSpacing: {
+    marginTop: 24,
+    paddingTop: 32,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
   },
   roleContent: {
     flex: 1,
@@ -185,23 +196,5 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: LAVEI_YELLOW,
     fontWeight: '300',
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 8,
-  },
-  adminLink: {
-    fontSize: 14,
-    color: LAVEI_YELLOW,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
   },
 });
