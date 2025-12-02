@@ -73,7 +73,7 @@ async function sendPushNotification(messages: ExpoPushMessage[]): Promise<ExpoPu
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
-  app.get('/', (_req, res) => {
+  app.get('/api', (_req, res) => {
     res.json({ 
       message: 'Lavei API', 
       version: '1.0.0',
