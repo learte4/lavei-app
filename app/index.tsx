@@ -55,7 +55,7 @@ export default function LoginScreen() {
         </View>
 
         <Text style={[styles.subtitle, { color: '#fff' }]}>
-          Serviços de lavagem automotiva na palma da sua mão
+          O jeito mais fácil de lavar o seu carro
         </Text>
       </View>
 
