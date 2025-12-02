@@ -156,9 +156,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
+  scrollView: {
+    width: '100%',
+  },
   content: {
     alignItems: 'center',
     marginBottom: 48,
+    paddingHorizontal: 24,
   },
   logoContainer: {
     justifyContent: 'center',
@@ -174,6 +178,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.8,
     lineHeight: 26,
+    marginBottom: 32,
+  },
+  input: {
+    width: '100%',
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    fontSize: 16,
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+    width: '100%',
   },
   button: {
     paddingHorizontal: 48,
@@ -181,10 +203,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 200,
     alignItems: 'center',
+    marginBottom: 20,
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  toggleText: {
+    color: '#f0b100',
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
