@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
-  TextInput,
-  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,47 +14,46 @@ import { useAuth } from '../lib/useAuth';
 const LAVEI_YELLOW = '#f0b100';
 const LAVEI_DARK = '#071121';
 
-export default function LoginScreen() {
+type UserRole = 'client' | 'provider' | 'partner' | 'admin';
+
+interface RoleOption {
+  id: UserRole;
+  label: string;
+  description: string;
+  icon: string;
+}
+
+const roles: RoleOption[] = [
+  {
+    id: 'client',
+    label: 'Cliente',
+    description: 'Procuro lavar meu carro',
+    icon: '🚗',
+  },
+  {
+    id: 'provider',
+    label: 'Prestador',
+    description: 'Oferço serviço de lavagem',
+    icon: '🧼',
+  },
+  {
+    id: 'partner',
+    label: 'Parceiro',
+    description: 'Gerencio prestadores',
+    icon: '👔',
+  },
+];
+
+export default function RoleSelectScreen() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, login, register, error, clearError } = useAuth();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const { isAuthenticated, isLoading } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading]);
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    clearError();
-    
-    try {
-      if (isRegister) {
-        const result = await register({ email, password, firstName, lastName });
-        if (result.success) {
-          setEmail('');
-          setPassword('');
-          setFirstName('');
-          setLastName('');
-          setIsRegister(false);
-        }
-      } else {
-        const result = await login({ email, password });
-        if (result.success) {
-          setEmail('');
-          setPassword('');
-        }
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -66,85 +63,51 @@ export default function LoginScreen() {
     );
   }
 
+  const handleRoleSelect = (role: UserRole) => {
+    setSelectedRole(role);
+    router.push({
+      pathname: '/auth',
+      params: { role },
+    });
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: LAVEI_DARK }]}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          <View style={styles.logoContainer}>
-            <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
-          </View>
+      <View style={styles.header}>
+        <Image source={require('../assets/icon.png')} style={styles.headerLogo} resizeMode="contain" />
+      </View>
 
-          <Text style={[styles.subtitle, { color: '#fff' }]}>
-            O jeito mais fácil de lavar o seu carro
-          </Text>
+      <View style={styles.content}>
+        <Text style={styles.title}>Lavei</Text>
+        <Text style={styles.subtitle}>O jeito mais fácil de lavar o seu carro</Text>
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+        <View style={styles.divider} />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            editable={!isSubmitting}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Senha"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            editable={!isSubmitting}
-          />
-
-          {isRegister && (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Primeiro Nome"
-                value={firstName}
-                onChangeText={setFirstName}
-                editable={!isSubmitting}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Sobrenome"
-                value={lastName}
-                onChangeText={setLastName}
-                editable={!isSubmitting}
-              />
-            </>
-          )}
-
+        {roles.map((role) => (
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: LAVEI_YELLOW }]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
+            key={role.id}
+            style={styles.roleButton}
+            onPress={() => handleRoleSelect(role.id)}
+            activeOpacity={0.7}
           >
-            {isSubmitting ? (
-              <ActivityIndicator color={LAVEI_DARK} />
-            ) : (
-              <Text style={styles.buttonText}>{isRegister ? 'Criar Conta' : 'Entrar'}</Text>
-            )}
+            <View style={styles.roleContent}>
+              <Text style={styles.roleIcon}>{role.icon}</Text>
+              <View style={styles.roleText}>
+                <Text style={styles.roleLabel}>{role.label}</Text>
+                <Text style={styles.roleDescription}>{role.description}</Text>
+              </View>
+            </View>
+            <Text style={styles.arrow}>→</Text>
           </TouchableOpacity>
+        ))}
+      </View>
 
-          <TouchableOpacity
-            onPress={() => {
-              setIsRegister(!isRegister);
-              clearError();
-              setEmail('');
-              setPassword('');
-              setFirstName('');
-              setLastName('');
-            }}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.toggleText}>
-              {isRegister ? 'Já tem conta? Entrar' : 'Não tem conta? Criar'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Super Admin?</Text>
+        <TouchableOpacity>
+          <Text style={styles.adminLink}>Acessar Portal</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -152,67 +115,92 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
+    backgroundColor: LAVEI_DARK,
   },
-  scrollView: {
-    width: '100%',
+  header: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  headerLogo: {
+    width: 60,
+    height: 60,
   },
   content: {
-    alignItems: 'center',
-    marginBottom: 48,
-    paddingHorizontal: 24,
-  },
-  logoContainer: {
+    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
   },
-  logo: {
-    width: 280,
-    height: 280,
+  title: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 18,
-    textAlign: 'center',
-    opacity: 0.8,
-    lineHeight: 26,
-    marginBottom: 32,
-  },
-  input: {
-    width: '100%',
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    backgroundColor: '#fff',
     fontSize: 16,
+    color: '#aaa',
+    marginBottom: 32,
+    lineHeight: 24,
   },
-  errorText: {
-    color: '#ff6b6b',
-    fontSize: 14,
-    marginBottom: 16,
-    textAlign: 'center',
-    width: '100%',
+  divider: {
+    height: 1,
+    backgroundColor: '#333',
+    marginBottom: 24,
   },
-  button: {
-    paddingHorizontal: 48,
-    paddingVertical: 16,
-    borderRadius: 12,
-    minWidth: 200,
+  roleButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
   },
-  buttonText: {
-    color: '#fff',
+  roleContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  roleIcon: {
+    fontSize: 32,
+  },
+  roleText: {
+    flex: 1,
+  },
+  roleLabel: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#fff',
+    marginBottom: 4,
   },
-  toggleText: {
-    color: '#f0b100',
+  roleDescription: {
     fontSize: 14,
+    color: '#888',
+  },
+  arrow: {
+    fontSize: 24,
+    color: LAVEI_YELLOW,
+    fontWeight: '300',
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 8,
+  },
+  adminLink: {
+    fontSize: 14,
+    color: LAVEI_YELLOW,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
