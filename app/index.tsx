@@ -165,10 +165,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#222',
   },
   partnerButtonSpacing: {
-    marginTop: 24,
+    marginTop: 32,
     paddingTop: 32,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
+    borderBottomWidth: 0,
+    borderTopWidth: 0,
   },
   roleContent: {
     flex: 1,
