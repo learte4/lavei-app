@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 
 interface ExpoPushMessage {
   to: string;
@@ -71,7 +71,7 @@ async function sendPushNotification(messages: ExpoPushMessage[]): Promise<ExpoPu
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  await setupAuth(app);
+  setupAuth(app);
 
   app.get('/api', (_req, res) => {
     res.json({ 
@@ -79,7 +79,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       version: '1.0.0',
       endpoints: {
         health: 'GET /api/health',
-        auth: 'GET /api/auth/user',
+        auth: {
+          register: 'POST /api/register',
+          login: 'POST /api/login',
+          logout: 'POST /api/logout',
+          user: 'GET /api/auth/user',
+          google: 'GET /api/auth/google'
+        },
         notifications: {
           register: 'POST /api/notifications/register',
           send: 'POST /api/notifications/send',
@@ -87,17 +93,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
     });
-  });
-
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
   });
 
   app.get("/api/health", (_req, res) => {
@@ -115,7 +110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid Expo push token format' });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const token = await storage.savePushToken(userId, expoPushToken);
       console.log(`Registered push token for user ${userId}: ${expoPushToken}`);
       res.json({ success: true, tokenId: token.id });
@@ -137,7 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (targetUserId) {
         tokens = await storage.getPushTokensForUser(targetUserId);
       } else {
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         tokens = await storage.getPushTokensForUser(userId);
       }
 

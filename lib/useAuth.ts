@@ -15,6 +15,19 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  error: string | null;
+}
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface RegisterData {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export function useAuth() {
@@ -22,6 +35,7 @@ export function useAuth() {
     user: null,
     isAuthenticated: false,
     isLoading: true,
+    error: null,
   });
 
   const checkAuth = useCallback(async () => {
@@ -36,6 +50,7 @@ export function useAuth() {
           user,
           isAuthenticated: true,
           isLoading: false,
+          error: null,
         });
         await SecureStore.setItemAsync('isAuthenticated', 'true');
       } else {
@@ -43,6 +58,7 @@ export function useAuth() {
           user: null,
           isAuthenticated: false,
           isLoading: false,
+          error: null,
         });
         await SecureStore.deleteItemAsync('isAuthenticated');
       }
@@ -52,7 +68,94 @@ export function useAuth() {
         user: null,
         isAuthenticated: false,
         isLoading: false,
+        error: null,
       });
+    }
+  }, []);
+
+  const login = useCallback(async (credentials: LoginCredentials): Promise<{ success: boolean; message?: string }> => {
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      const response = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(credentials),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setState({
+          user: data,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
+        await SecureStore.setItemAsync('isAuthenticated', 'true');
+        return { success: true };
+      } else {
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: data.message || 'Erro ao fazer login',
+        }));
+        return { success: false, message: data.message || 'Erro ao fazer login' };
+      }
+    } catch (error) {
+      const message = 'Erro de conexão. Tente novamente.';
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: message,
+      }));
+      return { success: false, message };
+    }
+  }, []);
+
+  const register = useCallback(async (data: RegisterData): Promise<{ success: boolean; message?: string }> => {
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      const response = await fetch(`${API_URL}/api/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setState({
+          user: result,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
+        await SecureStore.setItemAsync('isAuthenticated', 'true');
+        return { success: true };
+      } else {
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: result.message || 'Erro ao criar conta',
+        }));
+        return { success: false, message: result.message || 'Erro ao criar conta' };
+      }
+    } catch (error) {
+      const message = 'Erro de conexão. Tente novamente.';
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: message,
+      }));
+      return { success: false, message };
     }
   }, []);
 
@@ -70,8 +173,17 @@ export function useAuth() {
         user: null,
         isAuthenticated: false,
         isLoading: false,
+        error: null,
       });
     }
+  }, []);
+
+  const clearError = useCallback(() => {
+    setState(prev => ({ ...prev, error: null }));
+  }, []);
+
+  const getGoogleAuthUrl = useCallback(() => {
+    return `${API_URL}/api/auth/google`;
   }, []);
 
   useEffect(() => {
@@ -81,6 +193,10 @@ export function useAuth() {
   return {
     ...state,
     checkAuth,
+    login,
+    register,
     logout,
+    clearError,
+    getGoogleAuthUrl,
   };
 }
