@@ -38,9 +38,12 @@ outputType = "webview"
 name = "Frontend (Expo)"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm start"
+args = "npx expo start --tunnel --non-interactive"
 
 [[ports]]
 localPort = 5000
@@ -57,10 +60,6 @@ externalPort = 3000
 [[ports]]
 localPort = 24678
 externalPort = 3001
-
-[[ports]]
-localPort = 35909
-externalPort = 3002
 
 [deployment]
 deploymentTarget = "static"
