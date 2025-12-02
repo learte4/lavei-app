@@ -17,6 +17,7 @@ declare global {
       firstName?: string | null;
       lastName?: string | null;
       profileImageUrl?: string | null;
+      role: string;
     }
   }
 }
@@ -89,6 +90,7 @@ export function setupAuth(app: Express) {
             firstName: user.firstName,
             lastName: user.lastName,
             profileImageUrl: user.profileImageUrl,
+            role: user.role,
           });
         } catch (error) {
           return done(error);
@@ -157,6 +159,7 @@ export function setupAuth(app: Express) {
               firstName: user.firstName,
               lastName: user.lastName,
               profileImageUrl: user.profileImageUrl,
+              role: user.role,
             });
           } catch (error) {
             return done(error as Error);
@@ -179,6 +182,7 @@ export function setupAuth(app: Express) {
         firstName: user.firstName,
         lastName: user.lastName,
         profileImageUrl: user.profileImageUrl,
+        role: user.role,
       });
     } catch (error) {
       done(error);
@@ -187,7 +191,7 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
-      const { email, password, firstName, lastName } = req.body;
+      const { email, password, firstName, lastName, role = 'client' } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ message: "Email e senha são obrigatórios" });
@@ -195,6 +199,11 @@ export function setupAuth(app: Express) {
 
       if (password.length < 6) {
         return res.status(400).json({ message: "A senha deve ter pelo menos 6 caracteres" });
+      }
+
+      const validRoles = ['client', 'provider', 'partner', 'admin'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ message: "Tipo de usuário inválido" });
       }
 
       const [existingUser] = await getUserByEmail(email);
@@ -210,6 +219,7 @@ export function setupAuth(app: Express) {
           password: hashedPassword,
           firstName,
           lastName,
+          role,
         })
         .returning();
 
@@ -220,6 +230,7 @@ export function setupAuth(app: Express) {
           firstName: user.firstName,
           lastName: user.lastName,
           profileImageUrl: user.profileImageUrl,
+          role: user.role,
         },
         (err) => {
           if (err) return next(err);
@@ -229,6 +240,7 @@ export function setupAuth(app: Express) {
             firstName: user.firstName,
             lastName: user.lastName,
             profileImageUrl: user.profileImageUrl,
+            role: user.role,
           });
         }
       );

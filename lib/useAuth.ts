@@ -9,6 +9,7 @@ interface User {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
+  role: 'client' | 'provider' | 'partner' | 'admin';
 }
 
 interface AuthState {
@@ -28,6 +29,7 @@ interface RegisterData {
   password: string;
   firstName?: string;
   lastName?: string;
+  role: 'client' | 'provider' | 'partner' | 'admin';
 }
 
 export function useAuth() {
