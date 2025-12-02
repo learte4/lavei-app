@@ -80,7 +80,6 @@ export default function RoleSelectScreen() {
       <View style={styles.content}>
         <View style={styles.titleContainer}>
           <Image source={require('../assets/icon.png')} style={styles.titleLogo} resizeMode="contain" />
-          <Text style={styles.title}>Lavei</Text>
         </View>
         <Text style={styles.subtitle}>O jeito mais fácil de lavar o seu carro</Text>
 
@@ -89,7 +88,7 @@ export default function RoleSelectScreen() {
         {roles.map((role, index) => (
           <TouchableOpacity
             key={role.id}
-            style={[styles.roleButton, index === 2 && styles.partnerButtonSpacing]}
+            style={[styles.roleButton, index === 2 && styles.partnerButtonSpacing, index < 2 && styles.noBorder]}
             onPress={() => handleRoleSelect(role.id)}
             activeOpacity={0.7}
           >
@@ -132,17 +131,12 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
+    marginBottom: 24,
+    justifyContent: 'center',
   },
   titleLogo: {
-    width: 48,
-    height: 48,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: '#fff',
+    width: 80,
+    height: 80,
   },
   subtitle: {
     fontSize: 16,
@@ -161,14 +155,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 20,
     paddingHorizontal: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
+  },
+  noBorder: {
+    borderBottomWidth: 0,
   },
   partnerButtonSpacing: {
     marginTop: 32,
     paddingTop: 32,
-    borderBottomWidth: 0,
-    borderTopWidth: 0,
   },
   roleContent: {
     flex: 1,
