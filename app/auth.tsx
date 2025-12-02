@@ -163,6 +163,22 @@ export default function AuthScreen() {
             )}
           </TouchableOpacity>
 
+          <TouchableOpacity
+            onPress={() => {
+              setIsRegister(!isRegister);
+              clearError();
+              setEmail('');
+              setPassword('');
+              setFirstName('');
+              setLastName('');
+            }}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.toggleText}>
+              {isRegister ? 'Já tem conta? Entrar' : 'Não tem conta? Criar'}
+            </Text>
+          </TouchableOpacity>
+
           {!isRegister && (
             <>
               <View style={styles.dividerContainer}>
@@ -181,22 +197,6 @@ export default function AuthScreen() {
               </TouchableOpacity>
             </>
           )}
-
-          <TouchableOpacity
-            onPress={() => {
-              setIsRegister(!isRegister);
-              clearError();
-              setEmail('');
-              setPassword('');
-              setFirstName('');
-              setLastName('');
-            }}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.toggleText}>
-              {isRegister ? 'Já tem conta? Entrar' : 'Não tem conta? Criar'}
-            </Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
