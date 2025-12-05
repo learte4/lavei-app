@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
@@ -24,7 +25,16 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   try {
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    const projectId =
+      Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    if (!projectId) {
+      console.warn('Expo projectId não configurado. Configure extra.eas.projectId para evitar avisos no EAS.');
+    }
+
+    const tokenResponse = projectId
+      ? await Notifications.getExpoPushTokenAsync({ projectId })
+      : await Notifications.getExpoPushTokenAsync();
+    const token = tokenResponse.data;
     console.log('Push token:', token);
 
     if (Platform.OS === 'android') {

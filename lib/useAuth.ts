@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import * as Linking from 'expo-linking';
+import { AppState, AppStateStatus } from 'react-native';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -185,11 +187,38 @@ export function useAuth() {
   }, []);
 
   const getGoogleAuthUrl = useCallback(() => {
-    return `${API_URL}/api/auth/google`;
+    const redirectUri = Linking.createURL("/");
+    console.log("Redirect URI gerada:", redirectUri);
+    return `${API_URL}/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
   }, []);
 
   useEffect(() => {
     checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      if (event.url) {
+        checkAuth();
+      }
+    };
+
+    const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
+
+    let currentState = AppState.currentState;
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if ((currentState === 'background' || currentState === 'inactive') && nextState === 'active') {
+        checkAuth();
+      }
+      currentState = nextState;
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      linkingSubscription.remove();
+      appStateSubscription.remove();
+    };
   }, [checkAuth]);
 
   return {

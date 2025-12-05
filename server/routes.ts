@@ -2,6 +2,17 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
+import type { AccountPreferences } from "./accountPreferences";
+import {
+  addHistoryEntry,
+  getHistoryForUser,
+  ServiceStatus,
+  updateHistoryStatus,
+} from "./historyStore";
+import {
+  getAccountPreferences,
+  updateAccountPreferences,
+} from "./accountPreferences";
 
 interface ExpoPushMessage {
   to: string;
@@ -90,6 +101,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           register: 'POST /api/notifications/register',
           send: 'POST /api/notifications/send',
           broadcast: 'POST /api/notifications/broadcast'
+        },
+        history: {
+          list: 'GET /api/history',
+          create: 'POST /api/history',
+          updateStatus: 'PATCH /api/history/:serviceId/status'
+        },
+        account: {
+          details: 'GET /api/account',
+          updatePreferences: 'PUT /api/account/preferences'
         }
       }
     });
@@ -200,6 +220,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error broadcasting notification:', error);
       res.status(500).json({ error: 'Failed to broadcast notification' });
     }
+  });
+
+  app.get('/api/history', isAuthenticated, (req: any, res) => {
+    const services = getHistoryForUser(req.user.id);
+    res.json({ services });
+  });
+
+  app.post('/api/history', isAuthenticated, (req: any, res) => {
+    const { vehicle, serviceType, address, scheduledFor, price, notes } = req.body;
+    if (!vehicle || !serviceType || !address || !scheduledFor || typeof price === 'undefined') {
+      return res.status(400).json({ error: 'Dados obrigatórios ausentes' });
+    }
+    const parsedPrice = Number(price);
+    if (Number.isNaN(parsedPrice)) {
+      return res.status(400).json({ error: 'Preço inválido' });
+    }
+    const entry = addHistoryEntry(req.user.id, {
+      vehicle,
+      serviceType,
+      address,
+      scheduledFor,
+      price: parsedPrice,
+      notes,
+      completedAt: null,
+    });
+    res.status(201).json(entry);
+  });
+
+  app.patch('/api/history/:serviceId/status', isAuthenticated, (req: any, res) => {
+    const validStatuses: ServiceStatus[] = ['scheduled', 'in_progress', 'completed', 'cancelled'];
+    const status = req.body.status as ServiceStatus;
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Status inválido' });
+    }
+    const updated = updateHistoryStatus(req.user.id, req.params.serviceId, status);
+    if (!updated) {
+      return res.status(404).json({ error: 'Serviço não encontrado' });
+    }
+    res.json(updated);
+  });
+
+  app.get('/api/account', isAuthenticated, (req: any, res) => {
+    const preferences = getAccountPreferences(req.user.id);
+    res.json({ user: req.user, preferences });
+  });
+
+  app.put('/api/account/preferences', isAuthenticated, (req: any, res) => {
+    const updates: Partial<Omit<AccountPreferences, 'userId'>> = {};
+    if (typeof req.body.notificationsEnabled === 'boolean') {
+      updates.notificationsEnabled = req.body.notificationsEnabled;
+    }
+    if (typeof req.body.emailUpdates === 'boolean') {
+      updates.emailUpdates = req.body.emailUpdates;
+    }
+    if (typeof req.body.preferredVehicle === 'string') {
+      updates.preferredVehicle = req.body.preferredVehicle;
+    }
+    if (typeof req.body.paymentMethodLast4 === 'string') {
+      updates.paymentMethodLast4 = req.body.paymentMethodLast4;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'Nenhum campo válido informado' });
+    }
+
+    const preferences = updateAccountPreferences(req.user.id, updates);
+    res.json({ preferences });
   });
 
   const httpServer = createServer(app);

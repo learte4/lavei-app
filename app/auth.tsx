@@ -192,7 +192,7 @@ export default function AuthScreen() {
                 onPress={handleGoogleLogin}
                 disabled={isSubmitting}
               >
-                <Image source={require('../assets/google.svg')} style={styles.googleLogo} />
+                <Image source={require('../assets/google.png')} style={styles.googleLogo} />
                 <Text style={styles.googleButtonText}>Entrar com Google</Text>
               </TouchableOpacity>
             </>

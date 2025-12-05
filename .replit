@@ -61,14 +61,9 @@ externalPort = 3000
 localPort = 24678
 externalPort = 3001
 
-[[ports]]
-localPort = 38705
-externalPort = 3002
-
 [deployment]
-deploymentTarget = "static"
-build = ["npm", "run", "build"]
-publicDir = "dist"
+deploymentTarget = "cloudrun"
+run = ["npm", "run", "server"]
 
 [userenv]
 

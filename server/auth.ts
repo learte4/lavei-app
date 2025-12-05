@@ -5,9 +5,8 @@ import { Express, RequestHandler } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
-import { users } from "../shared/schema";
-import { db, pool } from "./db";
-import { eq } from "drizzle-orm";
+import { randomBytes } from "crypto";
+import { userStore } from "./userStore";
 
 declare global {
   namespace Express {
@@ -23,6 +22,23 @@ declare global {
 }
 
 const PostgresSessionStore = connectPg(session);
+const defaultRedirectUris = "lavei://,exp://127.0.0.1:8081";
+const allowedRedirectUris = (process.env.ALLOWED_REDIRECT_URIS ?? defaultRedirectUris)
+  .split(",")
+  .map((uri) => uri.trim())
+  .filter(Boolean);
+
+const resolveRedirectUri = (candidate?: string) => {
+  if (!candidate) {
+    return allowedRedirectUris[0] ?? "lavei://";
+  }
+  if (allowedRedirectUris.includes(candidate)) {
+    return candidate;
+  }
+  return null;
+};
+
+const createOAuthState = () => randomBytes(16).toString("hex");
 
 async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
@@ -33,23 +49,33 @@ async function comparePasswords(supplied: string, stored: string): Promise<boole
 }
 
 async function getUserByEmail(email: string) {
-  return db.select().from(users).where(eq(users.email, email)).limit(1);
+  return userStore.findByEmail(email);
 }
 
 async function getUserById(id: string) {
-  return db.select().from(users).where(eq(users.id, id)).limit(1);
+  return userStore.findById(id);
 }
 
 async function getUserByGoogleId(googleId: string) {
-  return db.select().from(users).where(eq(users.googleId, googleId)).limit(1);
+  return userStore.findByGoogleId(googleId);
 }
 
 export function setupAuth(app: Express) {
-  const store = new PostgresSessionStore({ 
-    pool, 
-    createTableIfMissing: true,
-    tableName: "sessions"
-  });
+  console.log("Configuring authentication routes...");
+  const useDatabaseSessions = Boolean(process.env.DATABASE_URL);
+  let store: session.Store;
+
+  if (useDatabaseSessions) {
+    const { pool } = require("./db");
+    store = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
+      tableName: "sessions",
+    });
+  } else {
+    console.warn("DATABASE_URL não definido. Usando MemoryStore para sessões (apenas dev/teste).");
+    store = new session.MemoryStore();
+  }
   
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
@@ -73,7 +99,7 @@ export function setupAuth(app: Express) {
       { usernameField: "email" },
       async (email, password, done) => {
         try {
-          const [user] = await getUserByEmail(email);
+          const user = await getUserByEmail(email);
           if (!user) {
             return done(null, false, { message: "Email ou senha incorretos" });
           }
@@ -121,35 +147,25 @@ export function setupAuth(app: Express) {
               return done(new Error("Email não disponível na conta Google"));
             }
 
-            let [user] = await getUserByGoogleId(googleId);
+            let user = await getUserByGoogleId(googleId);
 
             if (!user) {
-              const [existingUser] = await getUserByEmail(email);
+              const existingUser = await getUserByEmail(email);
               if (existingUser) {
-                const [updated] = await db
-                  .update(users)
-                  .set({ 
-                    googleId, 
-                    firstName: firstName || existingUser.firstName,
-                    lastName: lastName || existingUser.lastName,
-                    profileImageUrl: profileImageUrl || existingUser.profileImageUrl,
-                    updatedAt: new Date() 
-                  })
-                  .where(eq(users.id, existingUser.id))
-                  .returning();
-                user = updated;
+                user = await userStore.updateUser(existingUser.id, {
+                  googleId,
+                  firstName: firstName || existingUser.firstName,
+                  lastName: lastName || existingUser.lastName,
+                  profileImageUrl: profileImageUrl || existingUser.profileImageUrl,
+                });
               } else {
-                const [newUser] = await db
-                  .insert(users)
-                  .values({
-                    email,
-                    googleId,
-                    firstName,
-                    lastName,
-                    profileImageUrl,
-                  })
-                  .returning();
-                user = newUser;
+                user = await userStore.createUser({
+                  email,
+                  googleId,
+                  firstName,
+                  lastName,
+                  profileImageUrl,
+                });
               }
             }
 
@@ -172,7 +188,7 @@ export function setupAuth(app: Express) {
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: string, done) => {
     try {
-      const [user] = await getUserById(id);
+      const user = await getUserById(id);
       if (!user) {
         return done(null, false);
       }
@@ -206,22 +222,19 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Tipo de usuário inválido" });
       }
 
-      const [existingUser] = await getUserByEmail(email);
+      const existingUser = await getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "Este email já está em uso" });
       }
 
       const hashedPassword = await hashPassword(password);
-      const [user] = await db
-        .insert(users)
-        .values({
-          email,
-          password: hashedPassword,
-          firstName,
-          lastName,
-          role,
-        })
-        .returning();
+      const user = await userStore.createUser({
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        role,
+      });
 
       req.login(
         {
@@ -286,19 +299,104 @@ export function setupAuth(app: Express) {
   });
 
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    app.get("/api/auth/google", passport.authenticate("google", { 
-      scope: ["profile", "email"] 
-    }));
+    const initiateGoogleOAuth: RequestHandler = (req, res, next) => {
+      const rawRedirectUri = typeof req.query.redirect_uri === "string" ? req.query.redirect_uri : undefined;
+      const redirectUri = resolveRedirectUri(rawRedirectUri);
+      if (!redirectUri) {
+        return res.status(400).json({ message: "redirect_uri não permitido" });
+      }
+      const state = createOAuthState();
+      (req.session as any).redirectUri = redirectUri;
+      (req.session as any).oauthState = state;
+      req.session.save((err) => {
+        if (err) {
+          console.error("Erro ao persistir sessão OAuth:", err);
+          return res.status(500).json({ message: "Não foi possível iniciar o login com Google" });
+        }
+        return passport.authenticate("google", {
+          scope: ["profile", "email"],
+          state,
+        })(req, res, next);
+      });
+    };
+
+    const validateOAuthState: RequestHandler = (req, res, next) => {
+      const expectedState = (req.session as any).oauthState;
+      const receivedState = typeof req.query.state === "string" ? req.query.state : undefined;
+      if (!expectedState || !receivedState || expectedState !== receivedState) {
+        console.warn("OAuth state inválido recebido do Google");
+        return res.status(400).send("Invalid OAuth state");
+      }
+      return next();
+    };
+
+    app.get("/api/auth/google", initiateGoogleOAuth);
 
     app.get(
       "/api/auth/google/callback",
+      validateOAuthState,
       passport.authenticate("google", { failureRedirect: "/api/auth/google/failure" }),
       (req, res) => {
-        res.json({
-          success: true,
-          user: req.user,
-          message: "Login realizado com sucesso"
-        });
+        console.log("Google callback success for user:", req.user);
+        const storedRedirect = typeof (req.session as any).redirectUri === "string" ? (req.session as any).redirectUri : undefined;
+        const redirectUri = resolveRedirectUri(storedRedirect) ?? "lavei://";
+        (req.session as any).redirectUri = undefined;
+        (req.session as any).oauthState = undefined;
+        console.log("Redirecionando para:", redirectUri);
+        
+        res.send(`
+          <html>
+            <head>
+              <title>Autenticado - Lavei</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <script>
+                window.onload = function() {
+                  // Tenta redirecionar imediatamente
+                  window.location.href = "${redirectUri}";
+                  
+                  // Fallback para fechar a janela se for popup
+                  setTimeout(function() {
+                    if (window.opener) {
+                      // window.close(); // Comentado para evitar fechar antes do redirect
+                    }
+                  }, 2000);
+                };
+              </script>
+              <style>
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                  display: flex; 
+                  flex-direction: column; 
+                  align-items: center; 
+                  justify-content: center; 
+                  height: 100vh; 
+                  margin: 0; 
+                  background-color: #f0b100; 
+                  color: #071121; 
+                }
+                .container { text-align: center; padding: 20px; }
+                .btn { 
+                  display: inline-block; 
+                  padding: 12px 24px; 
+                  background-color: #071121; 
+                  color: #ffffff; 
+                  text-decoration: none; 
+                  border-radius: 8px; 
+                  margin-top: 20px; 
+                  font-weight: bold;
+                  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1>Login realizado!</h1>
+                <p>Se o app não abrir automaticamente, clique abaixo:</p>
+                <a href="${redirectUri}" class="btn">Voltar para o App</a>
+              </div>
+            </body>
+          </html>
+        `);
       }
     );
 

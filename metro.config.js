@@ -2,12 +2,20 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// Configure Metro to allow remote connections
+const allowedOrigins = (process.env.METRO_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 config.server = {
   enhanceMiddleware: (middleware) => {
     return (req, res, next) => {
-      // Allow all hosts
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      if (allowedOrigins.length > 0) {
+        const origin = req.headers.origin;
+        if (origin && allowedOrigins.includes(origin)) {
+          res.setHeader('Access-Control-Allow-Origin', origin);
+        }
+      }
       return middleware(req, res, next);
     };
   },
