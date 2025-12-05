@@ -8,5 +8,9 @@ export default defineConfig({
     coverage: {
       reporter: ["text", "html"],
     },
+    env: {
+      // Ensure DATABASE_URL is not set during tests to use in-memory stores
+      DATABASE_URL: "",
+    },
   },
 });

@@ -1,18 +1,40 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
-import type { AccountPreferences } from "./accountPreferences";
+import { createChildLogger } from "./logger";
+import { requireAdmin } from "./middleware/authorization";
+import {
+  authLimiter,
+  notificationLimiter,
+  broadcastLimiter,
+  createResourceLimiter,
+} from "./rateLimiter";
+import {
+  registerPushTokenSchema,
+  sendNotificationSchema,
+  broadcastNotificationSchema,
+  createHistorySchema,
+  updateHistoryStatusSchema,
+  historyQuerySchema,
+  updatePreferencesSchema,
+} from "./validation";
 import {
   addHistoryEntry,
   getHistoryForUser,
-  ServiceStatus,
   updateHistoryStatus,
 } from "./historyStore";
 import {
   getAccountPreferences,
   updateAccountPreferences,
 } from "./accountPreferences";
+
+const routesLogger = createChildLogger("routes");
+
+// Typed request with authenticated user
+interface AuthenticatedRequest extends Request {
+  user: Express.User;
+}
 
 interface ExpoPushMessage {
   to: string;
@@ -119,45 +141,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  app.post('/api/notifications/register', isAuthenticated, async (req: any, res) => {
+  // ============================================
+  // Notification Routes
+  // ============================================
+
+  app.post('/api/notifications/register', isAuthenticated, notificationLimiter, async (req: Request, res: Response) => {
     try {
-      const { expoPushToken } = req.body;
-      if (!expoPushToken) {
-        return res.status(400).json({ error: 'Missing expoPushToken' });
+      const parsed = registerPushTokenSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' });
       }
 
-      if (!expoPushToken.startsWith('ExponentPushToken[') && !expoPushToken.startsWith('ExpoPushToken[')) {
-        return res.status(400).json({ error: 'Invalid Expo push token format' });
-      }
-
-      const userId = req.user.id;
-      const token = await storage.savePushToken(userId, expoPushToken);
-      console.log(`Registered push token for user ${userId}: ${expoPushToken}`);
+      const authReq = req as AuthenticatedRequest;
+      const { expoPushToken } = parsed.data;
+      const token = await storage.savePushToken(authReq.user.id, expoPushToken);
+      routesLogger.info({ userId: authReq.user.id }, "Push token registered");
       res.json({ success: true, tokenId: token.id });
     } catch (error) {
-      console.error('Error registering push token:', error);
-      res.status(500).json({ error: 'Failed to register push token' });
+      routesLogger.error({ error }, "Error registering push token");
+      res.status(500).json({ error: 'Falha ao registrar token de notificação' });
     }
   });
 
-  app.post('/api/notifications/send', isAuthenticated, async (req: any, res) => {
+  app.post('/api/notifications/send', isAuthenticated, notificationLimiter, async (req: Request, res: Response) => {
     try {
-      const { title, body, data, targetUserId } = req.body;
-
-      if (!title || !body) {
-        return res.status(400).json({ error: 'Missing title or body' });
+      const parsed = sendNotificationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' });
       }
 
-      let tokens;
-      if (targetUserId) {
-        tokens = await storage.getPushTokensForUser(targetUserId);
-      } else {
-        const userId = req.user.id;
-        tokens = await storage.getPushTokensForUser(userId);
-      }
+      const authReq = req as AuthenticatedRequest;
+      const { title, body, data, targetUserId } = parsed.data;
+
+      const tokens = targetUserId
+        ? await storage.getPushTokensForUser(targetUserId)
+        : await storage.getPushTokensForUser(authReq.user.id);
 
       if (tokens.length === 0) {
-        return res.status(404).json({ error: 'No push tokens found' });
+        return res.status(404).json({ error: 'Nenhum token de notificação encontrado' });
       }
 
       const messages: ExpoPushMessage[] = tokens.map(t => ({
@@ -179,23 +200,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         failed: tokens.length - successCount
       });
     } catch (error) {
-      console.error('Error sending push notification:', error);
-      res.status(500).json({ error: 'Failed to send notification' });
+      routesLogger.error({ error }, "Error sending push notification");
+      res.status(500).json({ error: 'Falha ao enviar notificação' });
     }
   });
 
-  app.post('/api/notifications/broadcast', isAuthenticated, async (req: any, res) => {
+  // Broadcast requires admin role
+  app.post('/api/notifications/broadcast', isAuthenticated, requireAdmin, broadcastLimiter, async (req: Request, res: Response) => {
     try {
-      const { title, body, data } = req.body;
-
-      if (!title || !body) {
-        return res.status(400).json({ error: 'Missing title or body' });
+      const parsed = broadcastNotificationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' });
       }
+
+      const authReq = req as AuthenticatedRequest;
+      const { title, body, data } = parsed.data;
 
       const allTokens = await storage.getAllPushTokens();
 
       if (allTokens.length === 0) {
-        return res.status(404).json({ error: 'No push tokens registered' });
+        return res.status(404).json({ error: 'Nenhum token de notificação registrado' });
       }
 
       const messages: ExpoPushMessage[] = allTokens.map(t => ({
@@ -210,6 +234,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tickets = await sendPushNotification(messages);
       const successCount = tickets.filter(t => t.status === 'ok').length;
 
+      routesLogger.info({ userId: authReq.user.id, sentTo: allTokens.length }, "Broadcast notification sent");
+
       res.json({ 
         success: true, 
         sentTo: allTokens.length,
@@ -217,76 +243,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
         failed: allTokens.length - successCount
       });
     } catch (error) {
-      console.error('Error broadcasting notification:', error);
-      res.status(500).json({ error: 'Failed to broadcast notification' });
+      routesLogger.error({ error }, "Error broadcasting notification");
+      res.status(500).json({ error: 'Falha ao enviar broadcast' });
     }
   });
 
-  app.get('/api/history', isAuthenticated, (req: any, res) => {
-    const services = getHistoryForUser(req.user.id);
-    res.json({ services });
+  // ============================================
+  // History Routes
+  // ============================================
+
+  app.get('/api/history', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const parsed = historyQuerySchema.safeParse(req.query);
+      const { page, limit } = parsed.success ? parsed.data : { page: 1, limit: 20 };
+
+      const authReq = req as AuthenticatedRequest;
+      const result = await getHistoryForUser(authReq.user.id, page, limit);
+      
+      res.json({
+        services: result.services,
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit),
+        },
+      });
+    } catch (error) {
+      routesLogger.error({ error }, "Error fetching history");
+      res.status(500).json({ error: 'Falha ao buscar histórico' });
+    }
   });
 
-  app.post('/api/history', isAuthenticated, (req: any, res) => {
-    const { vehicle, serviceType, address, scheduledFor, price, notes } = req.body;
-    if (!vehicle || !serviceType || !address || !scheduledFor || typeof price === 'undefined') {
-      return res.status(400).json({ error: 'Dados obrigatórios ausentes' });
+  app.post('/api/history', isAuthenticated, createResourceLimiter, async (req: Request, res: Response) => {
+    try {
+      const parsed = createHistorySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' });
+      }
+
+      const authReq = req as AuthenticatedRequest;
+      const entry = await addHistoryEntry(authReq.user.id, parsed.data);
+      
+      routesLogger.info({ userId: authReq.user.id, serviceId: entry.id }, "History entry created");
+      res.status(201).json(entry);
+    } catch (error) {
+      routesLogger.error({ error }, "Error creating history entry");
+      res.status(500).json({ error: 'Falha ao criar entrada no histórico' });
     }
-    const parsedPrice = Number(price);
-    if (Number.isNaN(parsedPrice)) {
-      return res.status(400).json({ error: 'Preço inválido' });
-    }
-    const entry = addHistoryEntry(req.user.id, {
-      vehicle,
-      serviceType,
-      address,
-      scheduledFor,
-      price: parsedPrice,
-      notes,
-      completedAt: null,
-    });
-    res.status(201).json(entry);
   });
 
-  app.patch('/api/history/:serviceId/status', isAuthenticated, (req: any, res) => {
-    const validStatuses: ServiceStatus[] = ['scheduled', 'in_progress', 'completed', 'cancelled'];
-    const status = req.body.status as ServiceStatus;
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Status inválido' });
+  app.patch('/api/history/:serviceId/status', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const parsed = updateHistoryStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' });
+      }
+
+      const authReq = req as AuthenticatedRequest;
+      const updated = await updateHistoryStatus(authReq.user.id, req.params.serviceId, parsed.data.status);
+      
+      if (!updated) {
+        return res.status(404).json({ error: 'Serviço não encontrado' });
+      }
+      
+      routesLogger.info({ userId: authReq.user.id, serviceId: req.params.serviceId, status: parsed.data.status }, "History status updated");
+      res.json(updated);
+    } catch (error) {
+      routesLogger.error({ error }, "Error updating history status");
+      res.status(500).json({ error: 'Falha ao atualizar status' });
     }
-    const updated = updateHistoryStatus(req.user.id, req.params.serviceId, status);
-    if (!updated) {
-      return res.status(404).json({ error: 'Serviço não encontrado' });
-    }
-    res.json(updated);
   });
 
-  app.get('/api/account', isAuthenticated, (req: any, res) => {
-    const preferences = getAccountPreferences(req.user.id);
-    res.json({ user: req.user, preferences });
+  // ============================================
+  // Account Routes
+  // ============================================
+
+  app.get('/api/account', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const preferences = await getAccountPreferences(authReq.user.id);
+      res.json({ user: authReq.user, preferences });
+    } catch (error) {
+      routesLogger.error({ error }, "Error fetching account");
+      res.status(500).json({ error: 'Falha ao buscar conta' });
+    }
   });
 
-  app.put('/api/account/preferences', isAuthenticated, (req: any, res) => {
-    const updates: Partial<Omit<AccountPreferences, 'userId'>> = {};
-    if (typeof req.body.notificationsEnabled === 'boolean') {
-      updates.notificationsEnabled = req.body.notificationsEnabled;
-    }
-    if (typeof req.body.emailUpdates === 'boolean') {
-      updates.emailUpdates = req.body.emailUpdates;
-    }
-    if (typeof req.body.preferredVehicle === 'string') {
-      updates.preferredVehicle = req.body.preferredVehicle;
-    }
-    if (typeof req.body.paymentMethodLast4 === 'string') {
-      updates.paymentMethodLast4 = req.body.paymentMethodLast4;
-    }
+  app.put('/api/account/preferences', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const parsed = updatePreferencesSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' });
+      }
 
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: 'Nenhum campo válido informado' });
+      const authReq = req as AuthenticatedRequest;
+      const preferences = await updateAccountPreferences(authReq.user.id, parsed.data);
+      
+      routesLogger.info({ userId: authReq.user.id }, "Account preferences updated");
+      res.json({ preferences });
+    } catch (error) {
+      routesLogger.error({ error }, "Error updating preferences");
+      res.status(500).json({ error: 'Falha ao atualizar preferências' });
     }
-
-    const preferences = updateAccountPreferences(req.user.id, updates);
-    res.json({ preferences });
   });
 
   const httpServer = createServer(app);

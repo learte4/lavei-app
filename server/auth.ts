@@ -1,12 +1,17 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Express, RequestHandler } from "express";
+import { Express, RequestHandler, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { userStore } from "./userStore";
+import { createChildLogger } from "./logger";
+import { authLimiter } from "./rateLimiter";
+import { registerSchema, loginSchema } from "./validation";
+
+const authLogger = createChildLogger("auth");
 
 declare global {
   namespace Express {
@@ -22,7 +27,16 @@ declare global {
 }
 
 const PostgresSessionStore = connectPg(session);
-const defaultRedirectUris = "lavei://,exp://127.0.0.1:8081";
+const defaultRedirectUris = [
+  // Produção
+  "lavei://",
+  "https://lavei.app",
+  "https://lavei.replit.app",
+  // Desenvolvimento
+  "exp://127.0.0.1:8081",
+  "http://localhost:8081",
+  "http://localhost:8082",
+].join(",");
 const allowedRedirectUris = (process.env.ALLOWED_REDIRECT_URIS ?? defaultRedirectUris)
   .split(",")
   .map((uri) => uri.trim())
@@ -205,22 +219,15 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/register", async (req, res, next) => {
+  // Registration with rate limiting and Zod validation
+  app.post("/api/register", authLimiter, async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, password, firstName, lastName, role = 'client' } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email e senha são obrigatórios" });
+      const parsed = registerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Dados inválidos" });
       }
 
-      if (password.length < 6) {
-        return res.status(400).json({ message: "A senha deve ter pelo menos 6 caracteres" });
-      }
-
-      const validRoles = ['client', 'provider', 'partner', 'admin'];
-      if (!validRoles.includes(role)) {
-        return res.status(400).json({ message: "Tipo de usuário inválido" });
-      }
+      const { email, password, firstName, lastName, role } = parsed.data;
 
       const existingUser = await getUserByEmail(email);
       if (existingUser) {
@@ -235,6 +242,8 @@ export function setupAuth(app: Express) {
         lastName,
         role,
       });
+
+      authLogger.info({ userId: user.id, email: user.email }, "User registered");
 
       req.login(
         {
@@ -258,7 +267,7 @@ export function setupAuth(app: Express) {
         }
       );
     } catch (error) {
-      console.error("Registration error:", error);
+      authLogger.error({ error }, "Registration error");
       res.status(500).json({ message: "Erro ao criar conta" });
     }
   });
@@ -267,18 +276,27 @@ export function setupAuth(app: Express) {
     res.status(400).json({ message: "Use POST /api/login com email e password" });
   });
 
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: Express.User | false, info: any) => {
+  // Login with rate limiting and Zod validation
+  app.post("/api/login", authLimiter, (req: Request, res: Response, next: NextFunction) => {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.issues[0]?.message || "Dados inválidos" });
+    }
+
+    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message?: string }) => {
       if (err) {
+        authLogger.error({ error: err }, "Login error");
         return next(err);
       }
       if (!user) {
+        authLogger.warn({ email: parsed.data.email }, "Failed login attempt");
         return res.status(401).json({ message: info?.message || "Email ou senha incorretos" });
       }
       req.login(user, (err) => {
         if (err) {
           return next(err);
         }
+        authLogger.info({ userId: user.id }, "User logged in");
         res.json(user);
       });
     })(req, res, next);
